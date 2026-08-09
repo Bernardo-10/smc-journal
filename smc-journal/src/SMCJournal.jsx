@@ -1,113 +1,11 @@
+import { useTrades } from "./hooks/useTrades";
 import React, { useState, useEffect, useMemo } from "react";
 import { Plus, X, Pencil, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { ASSETS, DIRECTIONS, STRUCTURES, ZONES, RESULTS, emptyForm } from "./constants";
+import { fmt, toDisplayDate } from "./utils/format";
+import { computeR, computeStats, groupWinRate, buildEquityCurve } from "./utils/stats";
 
-const ASSETS = ["Or", "Bitcoin", "EURUSD"];
-const DIRECTIONS = ["Achat", "Vente"];
-const STRUCTURES = ["BOS haussier", "BOS baissier", "CHoCH haussier", "CHoCH baissier"];
-const ZONES = ["Discount", "Equilibrium", "Premium"];
-const RESULTS = ["En cours", "Gain", "Perte", "BE"];
-const STORAGE_KEY = "smc-journal-trades";
 
-const emptyForm = {
-  asset: "Or",
-  direction: "Vente",
-  date: new Date().toISOString().slice(0, 10),
-  structure: "BOS baissier",
-  zone: "Premium",
-  liquiditySwept: true,
-  liquidityNote: "",
-  obFresh: true,
-  entry: "",
-  sl: "",
-  tp: "",
-  exit: "",
-  result: "En cours",
-  notes: "",
-};
-
-function fmt(asset, val) {
-  const n = parseFloat(val);
-  if (val === "" || val === null || val === undefined || isNaN(n)) return "—";
-  return asset === "EURUSD" ? n.toFixed(5) : n.toFixed(2);
-}
-
-function computeR(t) {
-  if (t.result === "BE") return 0;
-  if (t.result !== "Gain" && t.result !== "Perte") return null;
-  const entry = parseFloat(t.entry), sl = parseFloat(t.sl), exit = parseFloat(t.exit);
-  if (isNaN(entry) || isNaN(sl) || isNaN(exit)) return null;
-  let risk, reward;
-  if (t.direction === "Achat") {
-    risk = entry - sl;
-    reward = exit - entry;
-  } else {
-    risk = sl - entry;
-    reward = entry - exit;
-  }
-  if (!risk || risk <= 0) return null;
-  return reward / risk;
-}
-
-function toDisplayDate(iso) {
-  if (!iso) return "—";
-  try {
-    return new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch {
-    return iso;
-  }
-}
-
-function computeStats(list) {
-  const decisive = list.filter((t) => t.result === "Gain" || t.result === "Perte");
-  const wins = list.filter((t) => t.result === "Gain").length;
-  const closed = list.filter((t) => t.result === "Gain" || t.result === "Perte" || t.result === "BE");
-  const rValues = closed.map(computeR).filter((r) => r !== null);
-  const totalR = rValues.reduce((a, b) => a + b, 0);
-  return {
-    total: list.length,
-    open: list.filter((t) => t.result === "En cours").length,
-    winRate: decisive.length ? (wins / decisive.length) * 100 : null,
-    totalR,
-    avgR: rValues.length ? totalR / rValues.length : null,
-    rCount: rValues.length,
-  };
-}
-
-function groupWinRate(list, keyFn, labels) {
-  const groups = {};
-  labels.forEach((l) => (groups[l] = { wins: 0, losses: 0 }));
-  list.forEach((t) => {
-    if (t.result !== "Gain" && t.result !== "Perte") return;
-    const k = keyFn(t);
-    if (!groups[k]) groups[k] = { wins: 0, losses: 0 };
-    if (t.result === "Gain") groups[k].wins++;
-    else groups[k].losses++;
-  });
-  return labels.map((l) => {
-    const g = groups[l] || { wins: 0, losses: 0 };
-    const total = g.wins + g.losses;
-    return { label: l, total, winRate: total ? (g.wins / total) * 100 : null };
-  });
-}
-
-function buildEquityCurve(list) {
-  const closed = list
-    .filter((t) => t.result === "Gain" || t.result === "Perte" || t.result === "BE")
-    .slice()
-    .sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-  let cum = 0;
-  const points = [{ x: 0, y: 0 }];
-  closed.forEach((t, i) => {
-    const r = computeR(t) ?? 0;
-    cum += r;
-    points.push({ x: i + 1, y: cum });
-  });
-  return points;
-}
 
 function StatTile({ label, value, sub }) {
   return (
@@ -335,36 +233,13 @@ function ResultBadge({ result }) {
   );
 }
 
-export default function SMCJournal() {
-  const [trades, setTrades] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(emptyForm);
-  const [filterAsset, setFilterAsset] = useState("Tous");
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-
-    useEffect(() => {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            setTrades(raw ? JSON.parse(raw) : []);
-        } catch {
-            setTrades([]);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    function persist(newTrades) {
-        setTrades(newTrades);
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(newTrades));
-            setNotice("");
-        } catch {
-            setNotice("Sauvegarde impossible — réessaie dans un instant.");
-        }
-    }
+export default function SMCJournal({ user, onLogout }) {
+    const [formOpen, setFormOpen] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [form, setForm] = useState(emptyForm);
+    const [filterAsset, setFilterAsset] = useState("Tous");
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const { trades, loading, notice, addTrade, updateTrade, deleteTrade } = useTrades(user?.id);
 
   function resetForm() {
     setForm(emptyForm);
@@ -378,23 +253,22 @@ export default function SMCJournal() {
     setFormOpen(true);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    const id = editingId || Date.now().toString(36) + Math.random().toString(36).slice(2);
-    const trade = { ...form, id };
-    const newTrades = editingId ? trades.map((t) => (t.id === editingId ? trade : t)) : [trade, ...trades];
-    persist(newTrades);
-    resetForm();
-  }
+    const success = editingId
+      ? await updateTrade(editingId, form)
+      : await addTrade(form);
+    if (success) resetForm();
+}
 
-  function handleDelete(id) {
+  async function handleDelete(id) {
     if (confirmDeleteId !== id) {
-      setConfirmDeleteId(id);
-      return;
+        setConfirmDeleteId(id);
+        return;
     }
-    persist(trades.filter((t) => t.id !== id));
+    await deleteTrade(id);
     setConfirmDeleteId(null);
-  }
+}
 
   const filtered = useMemo(() => {
     const list = filterAsset === "Tous" ? trades : trades.filter((t) => t.asset === filterAsset);
@@ -444,22 +318,25 @@ export default function SMCJournal() {
       `}</style>
 
       <div className="max-w-3xl mx-auto px-4 py-6 sm:py-8">
-        <header className="mb-6">
-          <div
-            className="text-[10px] tracking-[0.2em] uppercase mb-1"
-            style={{ color: "var(--gold)", fontFamily: "var(--font-mono)" }}
-          >
+        <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+            <div className="text-[10px] tracking-[0.2em] uppercase mb-1" style={{ color: "var(--gold)", fontFamily: "var(--font-mono)" }}>
             OB · Structure · Liquidité · Equilibrium
-          </div>
-          <h1
-            className="text-2xl sm:text-3xl font-semibold"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
             Journal SMC
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--text-dim)" }}>
+            </h1>
+            <p className="text-sm mt-1" style={{ color: "var(--text-dim)" }}>
             Or · Bitcoin · EURUSD — suivi des exécutions selon tes 4 critères
-          </p>
+            </p>
+        </div>
+        <button
+            onClick={onLogout}
+            className="text-xs px-3 py-1.5 rounded-md shrink-0"
+            style={{ border: "1px solid var(--border)", color: "var(--text-dim)" }}
+        >
+            Déconnexion
+        </button>
         </header>
 
         {/* Stats overview */}
