@@ -4,58 +4,14 @@ import { Plus, X, Pencil, Trash2, TrendingUp, TrendingDown } from "lucide-react"
 import { ASSETS, DIRECTIONS, STRUCTURES, ZONES, RESULTS, emptyForm } from "./constants";
 import { fmt, toDisplayDate } from "./utils/format";
 import { computeR, computeStats, groupWinRate, buildEquityCurve } from "./utils/stats";
+import StatTile from "./components/ui/StatTile";
+import BreakdownRow from "./components/ui/BreakdownRow";
+import Toggle from "./components/ui/Toggle";
+import SegButton from "./components/ui/SegButton";
+import Field from "./components/ui/Field";
+import ResultBadge from "./components/ui/ResultBadge";
 
 
-
-function StatTile({ label, value, sub }) {
-  return (
-    <div
-      className="rounded-lg p-3 flex flex-col gap-1 min-w-0"
-      style={{ background: "var(--surface2)", border: "1px solid var(--border)" }}
-    >
-      <span className="text-[10px] tracking-widest uppercase truncate" style={{ color: "var(--text-faint)" }}>
-        {label}
-      </span>
-      <span className="text-lg font-semibold" style={{ fontFamily: "var(--font-mono)", color: "var(--text)" }}>
-        {value}
-      </span>
-      {sub && (
-        <span className="text-[11px]" style={{ color: "var(--text-dim)" }}>
-          {sub}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function BreakdownRow({ label, total, winRate }) {
-  const pct = winRate === null ? 0 : Math.round(winRate);
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-xs w-28 shrink-0 truncate" style={{ color: "var(--text-dim)" }}>
-        {label}
-      </span>
-      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--surface2)" }}>
-        <div
-          className="h-full rounded-full transition-all"
-          style={{
-            width: winRate === null ? "0%" : `${pct}%`,
-            background: winRate === null ? "var(--text-faint)" : pct >= 50 ? "var(--bull)" : "var(--bear)",
-          }}
-        />
-      </div>
-      <span
-        className="text-xs w-16 text-right shrink-0"
-        style={{ fontFamily: "var(--font-mono)", color: "var(--text)" }}
-      >
-        {winRate === null ? "—" : `${pct}%`}
-      </span>
-      <span className="text-[10px] w-10 text-right shrink-0" style={{ color: "var(--text-faint)" }}>
-        n={total}
-      </span>
-    </div>
-  );
-}
 
 function EquityCurve({ trades }) {
   const pts = useMemo(() => buildEquityCurve(trades), [trades]);
@@ -87,60 +43,6 @@ function EquityCurve({ trades }) {
   );
 }
 
-function Toggle({ checked, onChange, label }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className="flex items-center gap-2 text-xs"
-      style={{ color: "var(--text-dim)" }}
-    >
-      <span
-        className="w-9 h-5 rounded-full relative transition-colors shrink-0"
-        style={{ background: checked ? "var(--gold)" : "var(--surface2)", border: "1px solid var(--border)" }}
-      >
-        <span
-          className="absolute top-0.5 w-3.5 h-3.5 rounded-full transition-all"
-          style={{ background: "#0B0E13", left: checked ? "18px" : "2px" }}
-        />
-      </span>
-      {label}
-    </button>
-  );
-}
-
-function SegButton({ options, value, onChange }) {
-  return (
-    <div className="flex rounded-md overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-      {options.map((opt) => (
-        <button
-          type="button"
-          key={opt}
-          onClick={() => onChange(opt)}
-          className="flex-1 px-2 py-1.5 text-xs transition-colors"
-          style={{
-            background: value === opt ? "var(--gold)" : "transparent",
-            color: value === opt ? "#0B0E13" : "var(--text-dim)",
-            fontWeight: value === opt ? 600 : 400,
-          }}
-        >
-          {opt}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[10px] tracking-wide uppercase" style={{ color: "var(--text-faint)" }}>
-        {label}
-      </span>
-      {children}
-    </label>
-  );
-}
 
 const inputStyle = {
   background: "var(--surface2)",
@@ -215,23 +117,6 @@ function RiskRewardRail({ direction, entry, sl, tp }) {
   );
 }
 
-function ResultBadge({ result }) {
-  const map = {
-    Gain: { bg: "var(--bull)", text: "#0B0E13" },
-    Perte: { bg: "var(--bear)", text: "#0B0E13" },
-    BE: { bg: "var(--text-faint)", text: "#0B0E13" },
-    "En cours": { bg: "var(--surface2)", text: "var(--text-dim)" },
-  };
-  const s = map[result] || map["En cours"];
-  return (
-    <span
-      className="text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0"
-      style={{ background: s.bg, color: s.text }}
-    >
-      {result}
-    </span>
-  );
-}
 
 export default function SMCJournal({ user, onLogout }) {
     const [formOpen, setFormOpen] = useState(false);
