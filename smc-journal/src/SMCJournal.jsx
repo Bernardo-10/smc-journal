@@ -10,38 +10,10 @@ import Toggle from "./components/ui/Toggle";
 import SegButton from "./components/ui/SegButton";
 import Field from "./components/ui/Field";
 import ResultBadge from "./components/ui/ResultBadge";
+import EquityCurve from "./components/EquityCurve";
+import RiskRewardRail from "./components/RiskRewardRail";
 
 
-
-function EquityCurve({ trades }) {
-  const pts = useMemo(() => buildEquityCurve(trades), [trades]);
-  if (pts.length <= 1) {
-    return (
-      <div
-        className="h-16 flex items-center justify-center text-xs rounded-lg"
-        style={{ color: "var(--text-faint)", border: "1px dashed var(--border)" }}
-      >
-        La courbe apparaîtra après ton premier trade clôturé.
-      </div>
-    );
-  }
-  const xs = pts.map((p) => p.x);
-  const ys = pts.map((p) => p.y);
-  const maxX = Math.max(...xs, 1);
-  const maxY = Math.max(...ys, 0.01);
-  const minY = Math.min(...ys, -0.01);
-  const range = maxY - minY || 1;
-  const zeroY = 40 - ((0 - minY) / range) * 40;
-  const line = pts.map((p) => `${(p.x / maxX) * 100},${40 - ((p.y - minY) / range) * 40}`).join(" ");
-  const last = pts[pts.length - 1].y;
-  const stroke = last >= 0 ? "var(--bull)" : "var(--bear)";
-  return (
-    <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-16">
-      <line x1="0" y1={zeroY} x2="100" y2={zeroY} stroke="var(--border)" strokeWidth="0.5" />
-      <polyline points={line} fill="none" stroke={stroke} strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
 
 
 const inputStyle = {
@@ -51,71 +23,7 @@ const inputStyle = {
   fontFamily: "var(--font-mono)",
 };
 
-function RiskRewardRail({ direction, entry, sl, tp }) {
-  const e = parseFloat(entry), s = parseFloat(sl), t = parseFloat(tp);
-  const valid = !isNaN(e) && !isNaN(s) && !isNaN(t);
-  let risk, reward;
-  if (valid) {
-    if (direction === "Achat") {
-      risk = e - s;
-      reward = t - e;
-    } else {
-      risk = s - e;
-      reward = e - t;
-    }
-  }
-  const ok = valid && risk > 0 && reward > 0;
 
-  if (!ok) {
-    return (
-      <div
-        className="w-16 h-36 rounded-lg flex items-center justify-center text-center px-1"
-        style={{ border: "1px dashed var(--border)" }}
-      >
-        <span className="text-[9px] leading-tight" style={{ color: "var(--text-faint)" }}>
-          Entrée / SL / TP
-        </span>
-      </div>
-    );
-  }
-
-  const riskPct = (risk / (risk + reward)) * 100;
-  const rewardPct = 100 - riskPct;
-  const rr = (reward / risk).toFixed(2);
-  const topLabel = direction === "Achat" ? "TP" : "SL";
-  const bottomLabel = direction === "Achat" ? "SL" : "TP";
-  const topFlex = direction === "Achat" ? rewardPct : riskPct;
-  const bottomFlex = direction === "Achat" ? riskPct : rewardPct;
-  const topColor = direction === "Achat" ? "var(--bull)" : "var(--bear)";
-  const bottomColor = direction === "Achat" ? "var(--bear)" : "var(--bull)";
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div className="w-16 h-36 rounded-lg overflow-hidden flex flex-col" style={{ border: "1px solid var(--border)" }}>
-        <div
-          className="flex items-start justify-center pt-1"
-          style={{ flexGrow: topFlex, background: `${topColor}33`, minHeight: 4 }}
-        >
-          <span className="text-[9px] font-semibold" style={{ color: topColor }}>
-            {topLabel}
-          </span>
-        </div>
-        <div className="h-px" style={{ background: "var(--gold)" }} />
-        <div
-          className="flex items-end justify-center pb-1"
-          style={{ flexGrow: bottomFlex, background: `${bottomColor}33`, minHeight: 4 }}
-        >
-          <span className="text-[9px] font-semibold" style={{ color: bottomColor }}>
-            {bottomLabel}
-          </span>
-        </div>
-      </div>
-      <span className="text-[10px]" style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>
-        R:R {rr}
-      </span>
-    </div>
-  );
-}
 
 
 export default function SMCJournal({ user, onLogout }) {
